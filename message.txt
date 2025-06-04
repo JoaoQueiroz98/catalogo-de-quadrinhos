@@ -1,0 +1,126 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+from google.colab import files, output
+import io
+import warnings
+
+output.enable_custom_widget_manager()
+warnings.simplefilter(action='ignore', category=FutureWarning)
+custom_css = """
+<style>
+    .search-container { text-align: center; margin-bottom: 20px; }
+    .search-container input { width: 60%; padding: 10px; font-size: 16px; }
+    .search-container button { width: 30%; padding: 10px; font-size: 16px; background-color: #008CBA; color: white; border: none; cursor: pointer; }
+    .search-container button:hover { background-color: #005f75; }
+    .results-container { margin-top: 20px; text-align: center; }
+    .results-container table { width: 60%; margin: 0 auto; border-collapse: collapse; }
+    .results-container th, .results-container td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    .results-container th { background-color: #008CBA; color: white; }
+</style>
+"""
+display(HTML(custom_css))
+def carregar_e_preparar_dados():
+    global df, coluna_comic_name, coluna_publish_date
+
+    display(HTML("<div class='search-container'><p>📁 Faça o upload do seu arquivo CSV.</p></div>"))
+    uploaded = files.upload()
+
+    if not uploaded:
+        display(HTML("<p style='color:red;'>❌ Nenhum arquivo foi selecionado.</p>"))
+        return False
+
+    nome_arquivo_upload = list(uploaded.keys())[0]
+
+    try:
+        df_temp = pd.read_csv(io.StringIO(uploaded[nome_arquivo_upload].decode('utf-8')), low_memory=False)
+    except UnicodeDecodeError:
+        df_temp = pd.read_csv(io.StringIO(uploaded[nome_arquivo_upload].decode('latin1')), low_memory=False)
+
+    df_temp.columns = [col.strip().lower().replace(" ", "_") for col in df_temp.columns]
+
+    possiveis_nomes_data = ["publish_date", "publication_date", "data_publicacao", "date"]
+    coluna_publish_date = next((col for col in df_temp.columns if col in possiveis_nomes_data), None)
+
+    if not coluna_publish_date:
+        display(HTML("<p style='color:red;'>❌ Nenhuma coluna de data encontrada.</p>"))
+        return False
+
+    df_temp[coluna_publish_date] = pd.to_datetime(df_temp[coluna_publish_date], errors='coerce')
+    df_temp['ano'] = df_temp[coluna_publish_date].dt.year
+    df_temp = df_temp.dropna(subset=['ano']).copy()
+    df_temp = df_temp[(df_temp['ano'] >= 2000) & (df_temp['ano'] <= 2020)]
+
+    possiveis_nomes_comic = ["comic_name", "name", "title", "hero_name"]
+    coluna_comic_name = next((col for col in df_temp.columns if col in possiveis_nomes_comic), None)
+
+    if not coluna_comic_name:
+        coluna_comic_name = df_temp.columns[0]
+
+    df_temp[coluna_comic_name] = df_temp[coluna_comic_name].fillna("Desconhecido")
+    df = df_temp
+    display(HTML("<p>✅ Dados carregados com sucesso!</p>"))
+    return True
+def plotar_quadrinhos(nome_heroi):
+    clear_output(wait=True)
+    display(widgets.HBox([input_heroi, botao_pesquisar]))
+
+    if df is None:
+        display(HTML("<p style='color:red;'>❌ Dados não carregados. Por favor, carregue o arquivo CSV primeiro.</p>"))
+        return
+
+    filtro = df[coluna_comic_name].astype(str).str.contains(nome_heroi, case=False, na=False)
+    df_filtrado = df[filtro].copy()
+
+    if df_filtrado.empty:
+        display(HTML(f"<p style='color:orange;'>⚠️ Nenhum resultado encontrado para: <strong>'{nome_heroi}'</strong>.</p>"))
+        return
+
+    tabela_comics = df_filtrado[coluna_comic_name].value_counts().reset_index()
+    tabela_comics.columns = ["Quadrinho", "Quantidade"]
+
+    display(HTML("<div class='results-container'><p><strong>📚 Quadrinhos em que '{}' aparece:</strong></p></div>".format(nome_heroi)))
+    display(tabela_comics)
+
+    resumo = df_filtrado.groupby('ano').size().reset_index(name='quantidade')
+    resumo = resumo.set_index('ano').reindex(range(2000, 2021), fill_value=0).reset_index()
+
+    fig = px.bar(
+        resumo, x="ano", y="quantidade", text="quantidade",
+        title="<b>📊 Quadrinhos lançados pela Marvel (2000 - 2020)</b>",
+        labels={"ano": "Ano", "quantidade": "Número de Lançamentos"},
+        color="quantidade", color_continuous_scale="viridis"
+    )
+
+    fig.update_traces(textposition="outside")
+    fig.update_layout(
+        xaxis=dict(tickmode="linear", dtick=1),
+        title_x=0.5,
+        title_font=dict(size=22, family="Arial Black")
+    )
+
+    fig.show()
+input_heroi = widgets.Text(
+    value='Spider-Man',
+    placeholder='Digite o nome do herói',
+    description='Herói:',
+    layout=widgets.Layout(width='60%')
+)
+
+botao_pesquisar = widgets.Button(
+    description='Pesquisar',
+    button_style='primary',
+    layout=widgets.Layout(width='30%')
+)
+
+def on_pesquisar_clicked(b):
+    plotar_quadrinhos(input_heroi.value)
+
+botao_pesquisar.on_click(on_pesquisar_clicked)
+dados_carregados_sucesso = carregar_e_preparar_dados()
+
+if dados_carregados_sucesso:
+    display(widgets.HBox([input_heroi, botao_pesquisar]))
