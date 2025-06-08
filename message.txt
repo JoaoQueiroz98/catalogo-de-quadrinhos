@@ -1,3 +1,5 @@
+# 1. Importação de bibliotecas e configuração visual
+# Basicamente seria a importação de  bibliotecas para manipular dados, criar gráficos, usar widgets e exibir o que seria visualizado no Google Colab
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -10,6 +12,9 @@ import warnings
 
 output.enable_custom_widget_manager()
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+# 2. Estilização com CSS
+# Aplica um estilo mais vivo e bonito aos botões, tabelas e entrada de texto com HTML e o próprio CSS
 custom_css = """
 <style>
     .search-container { text-align: center; margin-bottom: 20px; }
@@ -23,6 +28,9 @@ custom_css = """
 </style>
 """
 display(HTML(custom_css))
+
+# 3. Função para carregar e preparar os dados
+# Aqui é solicitado o upload de um arquivo CSV, padroniza nomes de colunas, converte datas e filtra o período de 2000 a 2020
 def carregar_e_preparar_dados():
     global df, coluna_comic_name, coluna_publish_date
 
@@ -64,6 +72,9 @@ def carregar_e_preparar_dados():
     df = df_temp
     display(HTML("<p>✅ Dados carregados com sucesso!</p>"))
     return True
+
+# 4. Função de busca e visualização
+# Filtra os quadrinhos com base no nome do herói e exibe uma tabela e gráfico com lançamentos por ano específico
 def plotar_quadrinhos(nome_heroi):
     clear_output(wait=True)
     display(widgets.HBox([input_heroi, botao_pesquisar]))
@@ -103,6 +114,9 @@ def plotar_quadrinhos(nome_heroi):
     )
 
     fig.show()
+
+# 5. Criação dos widgets de entrada
+# Aqui é onde é criado o campo de texto para digitar o nome do herói e botão para iniciar a pesquisa
 input_heroi = widgets.Text(
     value='Spider-Man',
     placeholder='Digite o nome do herói',
@@ -116,10 +130,15 @@ botao_pesquisar = widgets.Button(
     layout=widgets.Layout(width='30%')
 )
 
+# 6. Ligação entre botão e função
+# Define o que acontece ao clicar no botão de pesquisa
 def on_pesquisar_clicked(b):
     plotar_quadrinhos(input_heroi.value)
 
 botao_pesquisar.on_click(on_pesquisar_clicked)
+
+# 7. Execução inicial
+# Executa o carregamento dos dados e exibe a interface se o carregamento for bem sucedido(o usuário pesquisar um quadrinho dentro do período estabelecido)
 dados_carregados_sucesso = carregar_e_preparar_dados()
 
 if dados_carregados_sucesso:
